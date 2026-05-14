@@ -2,8 +2,11 @@ import { formatSSE } from './sse'
 import { log } from './logger'
 import type { ChatSessionDO } from '../durable/ChatSessionDO'
 
-const POLL_INTERVAL_MS = 50
+// 200ms polling = ~560 polls for a 112s stream (vs 2240 at 50ms)
+// keeps total subrequests well under Cloudflare's 1000/invocation limit
+const POLL_INTERVAL_MS = 200
 const PING_INTERVAL_MS = 15_000
+const PUSH_BATCH_SIZE = 10   // 1125 tokens ÷ 10 = 113 pushTokenBatch calls
 
 /**
  * Worker-side SSE delivery loop.
@@ -117,6 +120,13 @@ export async function pipeBackendToDO(
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let pending: string[] = []
+
+  const flushBatch = async () => {
+    if (pending.length === 0) return
+    await stub.pushTokenBatch(pending)
+    pending = []
+  }
 
   try {
     while (true) {
@@ -137,8 +147,10 @@ export async function pipeBackendToDO(
         }
         if (event === 'token') {
           const { content } = JSON.parse(data) as { content: string }
-          await stub.pushToken(content)
+          pending.push(content)
+          if (pending.length >= PUSH_BATCH_SIZE) await flushBatch()
         } else if (event === 'done') {
+          await flushBatch()
           await stub.markDone()
           log({ event: 'backend_pipe_done', chatId })
           return
@@ -149,6 +161,6 @@ export async function pipeBackendToDO(
     reader.releaseLock()
   }
 
-  // Backend stream ended without an explicit done event
+  await flushBatch()
   await stub.markDone()
 }

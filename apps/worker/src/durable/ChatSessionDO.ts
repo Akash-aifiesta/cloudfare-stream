@@ -50,6 +50,25 @@ export class ChatSessionDO extends DurableObject<Env> {
     return seq
   }
 
+  // ── RPC: push a batch of tokens in one subrequest ─────────────────────────
+  async pushTokenBatch(tokens: string[]): Promise<number> {
+    const sql = this.ctx.storage.sql
+    const row = sql.exec<{ value: string }>(
+      `SELECT value FROM session_meta WHERE key = 'seq'`
+    ).one()
+    let seq = Number(row.value)
+    const now = Date.now()
+    for (const content of tokens) {
+      seq++
+      sql.exec(
+        `INSERT INTO chunks (seq, content, ts) VALUES (?, ?, ?)`,
+        seq, content, now
+      )
+    }
+    sql.exec(`UPDATE session_meta SET value = ? WHERE key = 'seq'`, String(seq))
+    return seq
+  }
+
   // ── RPC: signal stream complete ────────────────────────────────────────────
   async markDone(): Promise<void> {
     this.ctx.storage.sql.exec(
