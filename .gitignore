@@ -1,0 +1,18 @@
+# Dependencies
+**/node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.wrangler/
+
+# Environment
+.dev.vars
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store

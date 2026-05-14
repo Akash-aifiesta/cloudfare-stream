@@ -1,0 +1,12 @@
+name = "resumable-stream-worker"
+main = "src/index.ts"
+compatibility_date = "2025-05-14"
+
+
+[[durable_objects.bindings]]
+name = "CHAT_SESSION"
+class_name = "ChatSessionDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatSessionDO"]

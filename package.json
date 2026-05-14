@@ -1,0 +1,8 @@
+{
+  "name": "resumable-stream",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "pnpm --filter worker dev"
+  }
+}
